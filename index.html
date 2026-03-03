@@ -1,0 +1,643 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Monitoring Breakdown Rotating Equipment</title>
+
+  <style>
+    :root{
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      --bg:#f6f7fb; --card:#fff; --muted:#6b7280; --line:#9ca3af;
+      --head:#e5e7eb; --black:#111;
+      --green:#16a34a; --amber:#f59e0b; --red:#ea580c;
+      --bannerBorder:#fb923c; --bannerBg:#fff7ed; --bannerText:#7c2d12;
+    }
+    body{ margin:0; background:var(--bg); color:#111; }
+    .wrap{ max-width: 1800px; margin: 16px auto; padding: 0 10px; }
+    .card{ background:var(--card); border-radius:12px; padding:12px; box-shadow:0 8px 24px rgba(0,0,0,.06); }
+
+    /* 1) Judul dibesarkan */
+    .page-title{
+      font-size: 28px;
+      font-weight: 900;
+      letter-spacing: .2px;
+      margin: 0 0 6px 0;
+    }
+
+    .muted{ color:var(--muted); font-size:12px; line-height:1.25; }
+
+    .row{ display:flex; gap:8px; flex-wrap:wrap; align-items:end; }
+    input, textarea, select, button{
+      border-radius:9px; border:1px solid #d1d5db;
+      padding:8px 8px; font-size:12px; background:#fff; outline:none;
+    }
+    textarea{ min-height: 44px; resize: vertical; }
+    input:focus, textarea:focus, select:focus{ border-color:#a5b4fc; box-shadow:0 0 0 3px rgba(99,102,241,.12); }
+
+    button{ cursor:pointer; border:none; font-weight:650; }
+    .btn{ padding:8px 10px; border-radius:9px; }
+    .btn-primary{ background:#111827; color:#fff; }
+    .btn-ghost{ background:#eef2ff; color:#3730a3; }
+    .btn-danger{ background:#fee2e2; color:#991b1b; }
+    .hint{ font-size:11px; color:var(--muted); }
+
+    /* 2) Banner Bad Actor */
+    .banner{
+      margin: 10px 0 0;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid color-mix(in srgb, var(--bannerBorder) 60%, #000 0%);
+      background: var(--bannerBg);
+      color: var(--bannerText);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .banner b{ font-weight: 900; }
+    .banner ul{ margin: 8px 0 0 18px; padding: 0; }
+    .banner li{ margin: 4px 0; }
+
+    .table-wrap{
+      overflow:auto;
+      border:1px solid #e5e7eb;
+      border-radius:12px;
+      background:#fff;
+      margin-top:10px;
+    }
+    table{ width: 2100px; border-collapse: collapse; }
+    thead th{
+      position: sticky; top: 0; z-index: 2;
+      background:var(--head);
+      border:1px solid var(--line);
+      font-size:12px;
+      padding:8px 6px;
+      text-align:center;
+      white-space:nowrap;
+    }
+    tbody td{
+      border:1px solid var(--line);
+      padding:4px 6px;     /* compact */
+      font-size:12px;
+      vertical-align:top;
+      line-height:1.2;
+    }
+    .center{ text-align:center; }
+    .right{ text-align:right; }
+
+    /* column widths */
+    .no{ width:44px; }
+    .tag{ width:140px; }
+    .issue{ width:430px; }
+    .inspeksi{ width:360px; }  /* dibuat sama feel dengan rekom */
+    .rekom{ width:360px; }
+    .fail{ width:190px; }
+    .date{ width:120px; }
+    .dur{ width:120px; }
+    .prog{ width:34px; }     /* kecil khusus checkbox */
+    .comp{ width:240px; }
+    .ket{ width:260px; }
+    .aksi{ width:130px; }
+
+    /* completion bar */
+    .comp-wrap{
+      display:flex; gap:8px; align-items:center; justify-content:space-between;
+    }
+    .bar{
+      flex:1;
+      height:14px;
+      background:#fff;
+      border:1px solid var(--black);
+      min-width:150px;
+    }
+    .fill{ height:100%; width:0%; background: var(--green); }
+    .fill.warn{ background: var(--amber); }
+    .fill.bad{ background: var(--red); }
+    .pct{ font-weight:800; min-width:52px; text-align:right; font-size:12px; }
+
+    /* list formatting untuk inspeksi & rekom */
+    .list-format{ display:block; }
+    .list-item{
+      display:flex;
+      align-items:flex-start;
+      gap:6px;
+      margin-bottom:2px;
+    }
+    .list-item .num{
+      width:22px;
+      flex-shrink:0;
+      color:#374151;
+    }
+    .list-item .text{
+      flex:1;
+      white-space:pre-wrap;
+      line-height:1.2;
+    }
+
+    .tinybtn{ font-size:12px; padding:6px 8px; border-radius:9px; }
+    input[type="checkbox"]{ width:15px; height:15px; }
+    input[type="checkbox"][disabled]{ cursor:not-allowed; opacity:.45; }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+        <div>
+          <h1 class="page-title">Monitoring Breakdown Rotating Equipment</h1>
+          <div class="muted">
+            • Ascending (Start Date paling awal → paling akhir).<br/>
+            • P1 wajib <b>Hasil Inspeksi</b> • P2 wajib <b>Rekomendasi</b> • P4 wajib <b>End Date</b> • Progress berurutan.
+          </div>
+        </div>
+        <div class="row" style="justify-content:flex-end;">
+          <button class="btn btn-ghost tinybtn" onclick="exportCSV()">Export CSV</button>
+          <button class="btn btn-ghost tinybtn" onclick="exportJSON()">Export JSON</button>
+          <button class="btn btn-ghost tinybtn" onclick="document.getElementById('imp').click()">Import JSON</button>
+          <input id="imp" type="file" accept="application/json" style="display:none" />
+          <button class="btn btn-danger tinybtn" onclick="resetAll()">Reset</button>
+        </div>
+      </div>
+
+      <!-- 2) Announcement Bad Actor -->
+      <div id="badActorBanner" class="banner" style="display:none;"></div>
+    </div>
+
+    <div class="card" style="margin-top:10px;">
+      <div class="row">
+        <input id="tagNo" class="tag" placeholder="Tag No." />
+        <textarea id="issue" class="issue" placeholder="Issue"></textarea>
+        <textarea id="inspeksi" class="inspeksi" placeholder="Hasil Inspeksi (wajib jika P1). 1 baris = 1 poin."></textarea>
+        <textarea id="rekom" class="rekom" placeholder="Rekomendasi (wajib jika P2). 1 baris = 1 poin."></textarea>
+
+        <select id="failureMode" class="fail">
+          <option value="">Failure Mode (pilih)</option>
+          <option value="Bearing Defect">Bearing Defect</option>
+          <option value="Mechseal Leakage">Mechseal Leakage</option>
+          <option value="High Vibration">High Vibration</option>
+          <option value="Blade Pass Frequency">Blade Pass Frequency</option>
+          <option value="Jammed">Jammed</option>
+        </select>
+
+        <div>
+          <div class="hint">Start Date</div>
+          <input id="startDate" class="date" type="date" />
+        </div>
+        <div>
+          <div class="hint">End Date</div>
+          <input id="endDate" class="date" type="date" />
+        </div>
+
+        <input id="ket" class="ket" placeholder="Keterangan" />
+        <button class="btn btn-primary" onclick="saveRecord()">Simpan</button>
+        <button class="btn btn-ghost" onclick="clearForm()">Clear</button>
+        <div class="hint" id="editHint"></div>
+      </div>
+
+      <div class="row" style="margin-top:8px;">
+        <input id="q" style="min-width:320px; flex:1;" placeholder="Search (Tag/Issue/Inspeksi/Rekom/Failure/Keterangan)..." oninput="render()" />
+        <div class="hint">Tip: checklist progress bisa langsung dari tabel.</div>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th rowspan="2" class="no">No</th>
+            <th rowspan="2" class="tag">Tag No.</th>
+            <th rowspan="2" class="issue">Issue</th>
+            <th rowspan="2" class="inspeksi">Hasil Inspeksi</th>
+            <th rowspan="2" class="rekom">Rekomendasi</th>
+            <th rowspan="2" class="fail">Failure Mode</th>
+            <th colspan="3">Mean Time To Repair</th>
+            <th colspan="4">Progress</th>
+            <th rowspan="2" class="comp">Completion</th>
+            <th rowspan="2" class="ket">Keterangan</th>
+            <th rowspan="2" class="aksi">Aksi</th>
+          </tr>
+          <tr>
+            <th class="date">Start Date</th>
+            <th class="date">End Date</th>
+            <th class="dur">Duration</th>
+            <th class="prog">1</th>
+            <th class="prog">2</th>
+            <th class="prog">3</th>
+            <th class="prog">4</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+<script>
+  // ===== storage
+  const KEY = "breakdown_table_htmlonly_v5";
+  const load = () => { try { return JSON.parse(localStorage.getItem(KEY)) ?? []; } catch { return []; } };
+  const save = (rows) => localStorage.setItem(KEY, JSON.stringify(rows));
+
+  // ===== utils
+  const todayISO = () => new Date().toISOString().slice(0,10);
+  const esc = (s)=> (s ?? "").toString().replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  const toDate = (iso) => iso ? new Date(iso + "T00:00:00") : null;
+  const daysBetween = (aISO, bISO) => {
+    const a = toDate(aISO), b = toDate(bISO);
+    if (!a || !b) return 0;
+    return Math.round((b - a) / (1000*60*60*24));
+  };
+  const completion = (r) => ((r.p1?1:0)+(r.p2?1:0)+(r.p3?1:0)+(r.p4?1:0))/4;
+
+  function durationDays(r){
+    const end = r.endDate || todayISO(); // ongoing dihitung sampai hari ini
+    return r.startDate ? daysBetween(r.startDate, end) : 0;
+  }
+
+  function formatList(text){
+    const lines = (text || "").split("\n").filter(l => l.trim() !== "");
+    if (!lines.length) return "";
+    return lines.map((l,i)=>`
+      <div class="list-item">
+        <span class="num">${i+1}.</span>
+        <span class="text">${esc(l)}</span>
+      </div>
+    `).join("");
+  }
+
+  // ===== BAD ACTOR / REWORK DETECTION
+  function computeBadActors(rows){
+    const ONE_YEAR_DAYS = 365;
+    const map = new Map(); // tag -> [Date...]
+
+    for (const r of rows){
+      const tag = (r.tagNo || "").trim();
+      const sd = r.startDate ? new Date(r.startDate + "T00:00:00") : null;
+      if (!tag || !sd || Number.isNaN(sd.getTime())) continue;
+      if (!map.has(tag)) map.set(tag, []);
+      map.get(tag).push(sd);
+    }
+
+    const bad = [];
+    for (const [tag, dates] of map.entries()){
+      dates.sort((a,b)=>a-b);
+      let i = 0;
+      for (let j=0; j<dates.length; j++){
+        while ((dates[j] - dates[i]) / (1000*60*60*24) > ONE_YEAR_DAYS) i++;
+        const count = j - i + 1;
+        if (count >= 3){
+          bad.push({ tag, count });
+          break;
+        }
+      }
+    }
+    bad.sort((a,b)=> b.count - a.count);
+    return bad;
+  }
+
+  function renderBadActorBanner(rows){
+    const el = document.getElementById("badActorBanner");
+    if (!el) return;
+
+    const bad = computeBadActors(rows);
+
+    if (!bad.length){
+      el.style.display = "none";
+      el.innerHTML = "";
+      return;
+    }
+
+    const items = bad.slice(0, 10).map(x =>
+      `<li><b>${esc(x.tag)}</b> — tercatat <b>${x.count}x</b> dalam <b>&lt; 1 tahun</b> → <b>bad actor / rework</b></li>`
+    ).join("");
+
+    el.style.display = "block";
+    el.innerHTML = `
+      <div><b>Announcement:</b> Terdeteksi equipment berulang (<b>bad actor/rework</b>). <b>Saran:</b> perlu troubleshooting.</div>
+      <ul>${items}</ul>
+    `;
+  }
+
+  // ===== state
+  let rows = load();
+  let editingId = null;
+
+  document.getElementById("startDate").value = todayISO();
+
+  // ===== form helpers
+  function clearForm(){
+    editingId = null;
+    document.getElementById("editHint").textContent = "";
+    document.getElementById("tagNo").value = "";
+    document.getElementById("issue").value = "";
+    document.getElementById("inspeksi").value = "";
+    document.getElementById("rekom").value = "";
+    document.getElementById("failureMode").value = "";
+    document.getElementById("startDate").value = todayISO();
+    document.getElementById("endDate").value = "";
+    document.getElementById("ket").value = "";
+  }
+
+  function readForm(){
+    return {
+      tagNo: (document.getElementById("tagNo").value || "").trim(),
+      issue: (document.getElementById("issue").value || "").trim(),
+      inspeksi: (document.getElementById("inspeksi").value || "").trim(),
+      rekom: (document.getElementById("rekom").value || "").trim(),
+      failureMode: document.getElementById("failureMode").value,
+      startDate: document.getElementById("startDate").value,
+      endDate: document.getElementById("endDate").value,
+      ket: (document.getElementById("ket").value || "").trim(),
+    };
+  }
+
+  function validateBase(r){
+    if (!r.tagNo) return "Tag No. wajib diisi.";
+    if (!r.issue) return "Issue wajib diisi.";
+    if (!r.startDate) return "Start Date wajib diisi.";
+    return null;
+  }
+
+  function validateByProgress(r){
+    if (r.p1 && !(r.inspeksi || "").trim()) return "Hasil Inspeksi wajib diisi jika Tahap 1 diceklis.";
+    if (r.p2 && !(r.rekom || "").trim()) return "Rekomendasi wajib diisi jika Tahap 2 diceklis.";
+    if (r.p4 && !(r.endDate || "").trim()) return "End Date wajib diisi jika Tahap 4 diceklis (Complete).";
+    return null;
+  }
+
+  function saveRecord(){
+    const form = readForm();
+    const baseErr = validateBase(form);
+    if (baseErr) return alert(baseErr);
+
+    if (editingId){
+      const idx = rows.findIndex(x => x.id === editingId);
+      if (idx < 0) return;
+
+      const updated = { ...rows[idx], ...form, updatedAt: new Date().toISOString() };
+      const progErr = validateByProgress(updated);
+      if (progErr) return alert(progErr);
+
+      rows[idx] = updated;
+    } else {
+      rows.push({
+        id: crypto.randomUUID(),
+        ...form,
+        p1:false, p2:false, p3:false, p4:false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+    }
+
+    save(rows);
+    clearForm();
+    render();
+  }
+
+  function editRow(id){
+    const r = rows.find(x => x.id === id);
+    if (!r) return;
+    editingId = id;
+    document.getElementById("editHint").textContent = "Mode edit aktif (klik Simpan untuk update).";
+
+    document.getElementById("tagNo").value = r.tagNo || "";
+    document.getElementById("issue").value = r.issue || "";
+    document.getElementById("inspeksi").value = r.inspeksi || "";
+    document.getElementById("rekom").value = r.rekom || "";
+    document.getElementById("failureMode").value = r.failureMode || "";
+    document.getElementById("startDate").value = r.startDate || todayISO();
+    document.getElementById("endDate").value = r.endDate || "";
+    document.getElementById("ket").value = r.ket || "";
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function delRow(id){
+    if (!confirm("Hapus baris ini?")) return;
+    rows = rows.filter(x => x.id !== id);
+    if (editingId === id) clearForm();
+    save(rows);
+    render();
+  }
+
+  // ===== progress rules
+  function setProgress(id, step, checked){
+    const idx = rows.findIndex(x => x.id === id);
+    if (idx < 0) return;
+    const r = rows[idx];
+
+    // sequential dependency (when checking)
+    if (checked){
+      if (step === "p2" && !r.p1) return alert("Tahap 2 tidak bisa diceklis sebelum Tahap 1 selesai.");
+      if (step === "p3" && !r.p2) return alert("Tahap 3 tidak bisa diceklis sebelum Tahap 2 selesai.");
+      if (step === "p4" && !r.p3) return alert("Tahap 4 tidak bisa diceklis sebelum Tahap 3 selesai.");
+    }
+
+    // if unchecking, cascade off next steps
+    if (!checked){
+      if (step === "p1"){ r.p2=false; r.p3=false; r.p4=false; }
+      if (step === "p2"){ r.p3=false; r.p4=false; }
+      if (step === "p3"){ r.p4=false; }
+    }
+
+    // apply toggle
+    r[step] = !!checked;
+
+    // field requirements tied to steps
+    if (r.p1 && !(r.inspeksi || "").trim()){
+      r.p1 = false; r.p2=false; r.p3=false; r.p4=false;
+      save(rows); render(false);
+      return alert("Hasil Inspeksi wajib diisi jika Tahap 1 diceklis.");
+    }
+    if (r.p2 && !(r.rekom || "").trim()){
+      r.p2 = false; r.p3=false; r.p4=false;
+      save(rows); render(false);
+      return alert("Rekomendasi wajib diisi jika Tahap 2 diceklis.");
+    }
+    if (r.p4 && !(r.endDate || "").trim()){
+      r.p4 = false;
+      save(rows); render(false);
+      return alert("End Date wajib diisi sebelum menceklis Tahap 4 (Complete).");
+    }
+
+    r.updatedAt = new Date().toISOString();
+    save(rows);
+    render(false);
+  }
+
+  // ===== render
+  function render(){
+    const q = (document.getElementById("q").value || "").trim().toLowerCase();
+    const filtered = rows.filter(r=>{
+      if (!q) return true;
+      const hay = [r.tagNo, r.issue, r.inspeksi, r.rekom, r.failureMode, r.ket].join(" ").toLowerCase();
+      return hay.includes(q);
+    });
+
+    // ascending by startDate then createdAt
+    filtered.sort((a,b)=>{
+      const sa = a.startDate || "";
+      const sb = b.startDate || "";
+      if (sa && sb && sa !== sb) return sa.localeCompare(sb);
+      return (a.createdAt || "").localeCompare(b.createdAt || "");
+    });
+
+    // announcement uses full data (rows), not filtered, biar bener-bener deteksi keseluruhan
+    renderBadActorBanner(rows);
+
+    const tbody = document.getElementById("tbody");
+    tbody.innerHTML = "";
+
+    filtered.forEach((r, i)=>{
+      const pct = Math.round(completion(r)*100);
+      const dur = durationDays(r);
+
+      let fillClass = "";
+      if (pct < 50) fillClass = "bad";
+      else if (pct < 100) fillClass = "warn";
+
+      // disabled logic in UI
+      const dis2 = !r.p1 ? "disabled" : "";
+      const dis3 = !r.p2 ? "disabled" : "";
+      const dis4 = !r.p3 ? "disabled" : "";
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="center no">${i+1}</td>
+        <td class="tag"><b>${esc(r.tagNo)}</b></td>
+        <td class="issue">${esc(r.issue)}</td>
+
+        <td class="inspeksi">
+          <div class="list-format">${formatList(r.inspeksi || "")}</div>
+        </td>
+
+        <td class="rekom">
+          <div class="list-format">${formatList(r.rekom || "")}</div>
+        </td>
+
+        <td class="fail">${esc(r.failureMode || "")}</td>
+
+        <td class="date center">${esc(r.startDate || "")}</td>
+        <td class="date center">${esc(r.endDate || "")}</td>
+        <td class="dur center">${dur}</td>
+
+        <td class="center prog">
+          <input type="checkbox" ${r.p1?"checked":""}
+            onchange="setProgress('${r.id}','p1', this.checked)" />
+        </td>
+        <td class="center prog">
+          <input type="checkbox" ${r.p2?"checked":""} ${dis2}
+            onchange="setProgress('${r.id}','p2', this.checked)" />
+        </td>
+        <td class="center prog">
+          <input type="checkbox" ${r.p3?"checked":""} ${dis3}
+            onchange="setProgress('${r.id}','p3', this.checked)" />
+        </td>
+        <td class="center prog">
+          <input type="checkbox" ${r.p4?"checked":""} ${dis4}
+            onchange="setProgress('${r.id}','p4', this.checked)" />
+        </td>
+
+        <td class="comp">
+          <div class="comp-wrap">
+            <div class="pct">${pct}%</div>
+            <div class="bar" title="${pct}%">
+              <div class="fill ${fillClass}" style="width:${pct}%"></div>
+            </div>
+          </div>
+        </td>
+
+        <td class="ket">${esc(r.ket || "")}</td>
+
+        <td class="center aksi">
+          <button class="btn btn-ghost tinybtn" onclick="editRow('${r.id}')">Edit</button>
+          <button class="btn btn-danger tinybtn" onclick="delRow('${r.id}')">Hapus</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  // ===== export/import/reset
+  function downloadBlob(name, text, type){
+    const blob = new Blob([text], { type });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function exportJSON(){
+    const payload = { exportedAt: new Date().toISOString(), rows };
+    downloadBlob("breakdown_table_export.json", JSON.stringify(payload, null, 2), "application/json");
+  }
+
+  function exportCSV(){
+    const header = ["No","Tag No","Issue","Hasil Inspeksi","Rekomendasi","Failure Mode","Start Date","End Date","Duration(days)","P1","P2","P3","P4","Completion(%)","Keterangan"];
+    const sorted = rows.slice().sort((a,b)=>{
+      const sa = a.startDate || "";
+      const sb = b.startDate || "";
+      if (sa && sb && sa !== sb) return sa.localeCompare(sb);
+      return (a.createdAt || "").localeCompare(b.createdAt || "");
+    });
+
+    const lines = [header.join(",")];
+    sorted.forEach((r, idx)=>{
+      const pct = Math.round(completion(r)*100);
+      const dur = durationDays(r);
+      const vals = [
+        idx+1, r.tagNo, r.issue, (r.inspeksi||""), (r.rekom||""), (r.failureMode||""),
+        r.startDate, (r.endDate||""), dur,
+        r.p1?1:0, r.p2?1:0, r.p3?1:0, r.p4?1:0,
+        pct, (r.ket||"")
+      ].map(v => `"${String(v ?? "").replaceAll('"','""')}"`);
+      lines.push(vals.join(","));
+    });
+    downloadBlob("breakdown_table_export.csv", lines.join("\n"), "text/csv");
+  }
+
+  document.getElementById("imp").addEventListener("change", async (e)=>{
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f) return;
+    try{
+      const txt = await f.text();
+      const parsed = JSON.parse(txt);
+      const incoming = Array.isArray(parsed) ? parsed : (parsed.rows ?? []);
+      if (!Array.isArray(incoming)) throw new Error("Format JSON tidak valid.");
+
+      const map = new Map(rows.map(r=>[r.id,r]));
+      incoming.forEach(r=>{
+        if (!r.id) r.id = crypto.randomUUID();
+        map.set(r.id, {
+          p1:false,p2:false,p3:false,p4:false,
+          inspeksi:"", rekom:"", failureMode:"",
+          ...map.get(r.id),
+          ...r
+        });
+      });
+      rows = Array.from(map.values());
+      save(rows);
+      render();
+      alert("Import sukses.");
+    }catch(err){
+      alert("Gagal import: " + err.message);
+    }
+  });
+
+  function resetAll(){
+    if (!confirm("Reset semua data?")) return;
+    rows = [];
+    save(rows);
+    clearForm();
+    render();
+  }
+
+  // init
+  save(rows);
+  render();
+</script>
+</body>
+</html>
